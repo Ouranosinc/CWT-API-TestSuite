@@ -1,6 +1,7 @@
 import os
 import time
 import sys
+import json
 import unittest
 import ConfigParser
 
@@ -11,26 +12,29 @@ try:
 except ImportError:
     import wps_tests_utils
 
+import netCDF4
+
 
 class TestWPS(unittest.TestCase):
 
     def setUp(self):
         self.config = ConfigParser.RawConfigParser()
-        config_file_name = 'tas_day_CanESM2_historical_r1i1p1_19790101-20051231.cfg'
+        config_file_name = 'tas_day_MPI-ESM-MR_historical_r1i1p1.cfg'
         if os.path.isfile(config_file_name):
             self.config.read(config_file_name)
         else:
             self.config.read('cwtapitests/tests/{0}'.format(config_file_name))
 
-    def test_subset(self):
+    def test_temporal_subset(self):
         config_dict = wps_tests_utils.config_is_available(
-            'tas_day_CanESM2_historical_r1i1p1_19790101-20051231',
-            ['process_name', 'file_location', 'file_wps_identifier',
-             'file_is_complex', 'output_wps_identifier'],
-            self.config, set_wps_host=True)
+            'tas_day_MPI-ESM-MR_historical_r1i1p1',
+            ['wps_host', 'process_name', 'file_location',
+             'file_wps_identifier', 'file_is_complex',
+             'output_wps_identifier'],
+            self.config)
 
         wps = WebProcessingService(config_dict['wps_host'])
-        if config_dict['file_is_complex']:
+        if bool(int(config_dict['file_is_complex'])):
             file1 = ComplexDataInput(config_dict['file_location'])
         else:
             file1 = config_dict['file_location']
@@ -39,15 +43,14 @@ class TestWPS(unittest.TestCase):
         execution = wps.execute(
             config_dict['process_name'],
             inputs=[(config_dict['file_wps_identifier'], file1),
-                    ('typename', 'testgeom:montreal_circles'),
-                    ('featureids', 'montreal_circles.43')],
+                    ('initial_datetime', '2001-02-01T00:00:00'),
+                    ('final_datetime', '2001-04-01T00:00:00')],
             output='output')
 
         # Wait for the process to finish, could get stuck here?
         while execution.getStatus() == 'ProcessAccepted':
-            time.sleep(1)
             # Update status
-            execution.checkStatus()
+            execution.checkStatus(sleepSecs=1)
         if execution.getStatus() != 'ProcessSucceeded':
             raise RuntimeError()
         for process_output in execution.processOutputs:
@@ -57,13 +60,16 @@ class TestWPS(unittest.TestCase):
         # Here the reference in process_output.reference is
         # left empty?!? Falling back to home made function
         exec_resp = wps_tests_utils.parse_execute_response(execution.response)
-        out_file = exec_resp['outputs'][config_dict['output_wps_identifier']]
         
-        # And now we would need to actually download and test something on this
-        # out_file, which usually is a direct NetCDF file, but in the case of
-        # multi output support is actually a json containing a list of files as
-        # is the case in pavics subset_WFS. Requires another config
-        self.assertEqual(out_file, something)
+        json_response = json.loads(wps_tests_utils.get_wps_xlink(
+            exec_resp['outputs'][config_dict['output_wps_identifier']]))
+        out_file = os.path.basename(json_response[0])
+        wps_tests_utils.get_wps_xlink(json_response[0], out_file)
+
+        nc1 = netCDF4.Dataset(out_file,'r')
+        self.assertEqual(len(nc1.dimensions['time']), 60)
+        nc1.close()
+        os.remove(out_file)
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestWPS)
 

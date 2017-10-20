@@ -7,8 +7,6 @@ Functions:
 
  * :func:`xml_children_as_dict` - create dictionary from xml element children.
  * :func:`xml_attrib_nsmap` - replace nsmap values with their key.
- * :func:`parse_getcapabilities` - parse wps GetCapabilities response.
- * :func:`parse_describeprocess` - parse wps DescribeProcess response.
  * :func:`parse_execute_response` - parse wps execute response.
  * :func:`wps_response` - get xml document response from a WPS.
  * :func:`get_wps_xlink` - read a document from an url.
@@ -18,11 +16,8 @@ Functions:
 
 import unittest
 from lxml import etree
-try:
-    from urllib.request import urlopen, Request
-except ImportError:
-    from urllib2 import urlopen, Request
 
+import requests
 from owslib.wps import WebProcessingService, WPSReader, WPSExecution
 
 
@@ -77,104 +72,6 @@ def xml_attrib_nsmap(element):
             new_key = new_key.replace('{' + nsvalue + '}', nskey + ':')
         d[new_key] = value
     return d
-
-
-def parse_getcapabilities(html_response):
-    """Parse WPS GetCapabilities response.
-
-    Parameters
-    ----------
-    html_response : string
-        xml document from a GetCapabilities WPS request.
-
-    Returns
-    -------
-    out : list of string
-        wps:ProcessOfferings -> wps:Process -> ows:Identifier
-
-    """
-
-    # XML structure:
-    # wps:Capabilities
-    #     ows:ServiceIdentification
-    #         [...]
-    #     ows:ServiceProvider
-    #         [...]
-    #     ows:OperationsMetadata
-    #         [...]
-    #     wps:ProcessOfferings
-    #         wps:Process (list)
-    #             ows:Identifier (text)
-    #             ows:Title (text)
-    #     wps:Languages
-    #         [...]
-    processes = []
-    capabilities = xml_children_as_dict(etree.fromstring(html_response))
-    process_offerings = xml_children_as_dict(
-        capabilities['wps:ProcessOfferings'][0])
-    for process_element in process_offerings['wps:Process']:
-        process = xml_children_as_dict(process_element)
-        processes.append(process['ows:Identifier'][0].text)
-    return sorted(processes)
-
-
-def parse_describeprocess(html_response):
-    """Parse WPS DescribeProcess response.
-
-    Parameters
-    ----------
-    html_response : string
-        xml document from a DescribeProcess WPS request.
-
-    Returns
-    -------
-    out : list of dict
-        'identifier' : ProcessDescription -> ows:Identifier
-        'inputs' : ProcessDescription -> DataInputs -> Input -> ows:Identifier
-        'ouputs' : ProcessDescription -> ProcessOutputs -> Output ->
-                   ows:Identifier
-
-    """
-
-    # XML structure:
-    # wps:ProcessDescriptions
-    #     ProcessDescription (list)
-    #         ows:Identifier (text)
-    #         ows:Title (text)
-    #         DataInputs (optional)
-    #             Input (list)
-    #                 ows:Identifier (text)
-    #                 ows:Title (text)
-    #                 LiteralData (xor)
-    #                     ows:DataType
-    #                     [...]
-    #         ProcessOutputs
-    #             Output (list)
-    #                 ows:Identifier (text)
-    #                 ows:Title (text)
-    #                 LiteralOutput (xor)
-    #                     ows:DataType
-    #                     [...]
-    processes = []
-    process_descriptions = xml_children_as_dict(
-        etree.fromstring(html_response))
-    for process_description_el in process_descriptions['ProcessDescription']:
-        d = {'inputs': [], 'outputs': []}
-        process_description = xml_children_as_dict(process_description_el)
-        d['identifier'] = process_description['ows:Identifier'][0].text
-        if 'DataInputs' in process_description:
-            data_inputs = xml_children_as_dict(
-                process_description['DataInputs'][0])
-            for input_element in data_inputs['Input']:
-                input1 = xml_children_as_dict(input_element)
-                d['inputs'].append(input1['ows:Identifier'][0].text)
-        process_outputs = xml_children_as_dict(
-            process_description['ProcessOutputs'][0])
-        for output_element in process_outputs['Output']:
-            output1 = xml_children_as_dict(output_element)
-            d['outputs'].append(output1['ows:Identifier'][0].text)
-        processes.append(d)
-    return processes
 
 
 def parse_execute_response(html_response):
@@ -267,37 +164,6 @@ def parse_execute_response(html_response):
         else:
             raise NotImplementedError()
     return d
-
-
-def wps_response(wps_host, pywps_request, wps_client=None):
-    """Get xml document response from a WPS.
-
-    Parameters
-    ----------
-    wps_host : string or None
-        url without the http:// prefix (e.g. 'localhost:8009/pywps').
-        If set to None, will use the wps_client provided (required).
-    pywps_request : string
-        wps request starting with '?service=WPS&request=[...]'
-    wps_client : pywps.tests.WpsClient or None
-        If wps_host is None this will be used to listen to wps requests.
-
-    Returns
-    -------
-    out : string
-        response from the server, which is an xml document if the request
-        is valid and the server is correctly setup.
-
-    """
-
-    if wps_host:
-        url_request = Request(
-            url='http://{0}{1}'.format(wps_host, pywps_request))
-        url_response = urlopen(url_request)
-        return url_response.read()
-    else:
-        resp = wps_client.get(pywps_request)
-        return resp.get_data()
 
 
 def get_capabilities(wps_host=None, wps_client=None, version='1.0.0'):
@@ -393,16 +259,62 @@ def execute(identifier, inputs=[], wps_host=None, wps_client=None,
         return execution
 
 
-def get_wps_xlink(xlink):
-    url_request = Request(url=xlink)
-    url_response = urlopen(url_request)
-    return url_response.read()
+def get_wps_xlink(xlink, output_file=None):
+    if output_file:
+        r = requests.get(xlink, stream=True)
+        with open(output_file, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=1024):
+                if chunk:  # filter out keep-alive new chunks
+                    f.write(chunk)
+        return output_file
+    else:
+        r = requests.get(xlink)
+        return r.text
 
 
-def config_is_available(config_names, config_dict):
+def config_is_available(config_section, config_names, config_read,
+                        set_wps_host=False):
+    """Check if a config section & parameters are available for tests.
+
+    Parameters
+    ----------
+    config_section : string
+        section of a cfg file.
+    config_names : list of string
+        name of parameters to check.
+    config_read : result from read method of ConfigParser.RawConfigParser
+    set_wps_host : bool
+        whether to set a default wps_host in the output config dictionary,
+        if there is already one, it is not overwritten.
+
+    Returns
+    -------
+
+    out : dict
+        dictionary of parameter:value for all parameters of the given section
+
+    """
+
     if not hasattr(config_names, '__iter__'):
         config_names = [config_names]
+    if config_section not in config_read.sections():
+        raise unittest.SkipTest(
+            "{0} section not defined in config.".format(config_section))
+    section = config_read.items(config_section)
+    section_d = {}
+    for item in section:
+        section_d[item[0]] = item[1]
     for config_name in config_names:
-        if (config_name not in config_dict) or (not config_dict[config_name]):
+        if (config_name not in section_d) or (not section_d[config_name]):
             raise unittest.SkipTest(
                 "{0} not defined in config.".format(config_name))
+
+    if set_wps_host:
+        if 'wps_host' in section_d:
+            # wps_host might be set, but empty. If that's the case, set to None
+            if not section_d['wps_host']:
+                section_d['wps_host'] = None
+        else:
+            section_d['wps_host'] = None
+
+    return section_d
