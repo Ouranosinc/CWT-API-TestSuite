@@ -30,7 +30,8 @@ class TestWPS(unittest.TestCase):
             'tas_day_MPI-ESM-MR_historical_r1i1p1',
             ['wps_host', 'process_name', 'file_location',
              'file_wps_identifier', 'file_is_complex',
-             'output_wps_identifier'],
+             'output_wps_identifier', 'initial_date_wps_identifier',
+             'final_date_wps_identifier'],
             self.config)
 
         wps = WebProcessingService(config_dict['wps_host'])
@@ -43,8 +44,10 @@ class TestWPS(unittest.TestCase):
         execution = wps.execute(
             config_dict['process_name'],
             inputs=[(config_dict['file_wps_identifier'], file1),
-                    ('initial_datetime', '2001-02-01T00:00:00'),
-                    ('final_datetime', '2001-04-01T00:00:00')],
+                    (config_dict['initial_date_wps_identifier'],
+                     '2001-02-01T00:00:00'),
+                    (config_dict['final_date_wps_identifier'],
+                     '2001-04-01T00:00:00')],
             output='output')
 
         # Wait for the process to finish, could get stuck here?
