@@ -5,11 +5,14 @@ from owslib.wps import WebProcessingService
 import wps_tests_utils
 
 class TestWPS(unittest.TestCase):
-    hostname = 'tbd'
-    wps = 'usually defined in config file'
-    identifier = 'tbd'
-    params = {}
+    hostname = 'defined in the config file'
+    wps = 'defined in config file'
+    identifier = 'important: this needs to be defined by subclasses'
     output_name = 'output'
+
+    # Enter input parameters here. Those that should be loaded from the
+    # configuration file should be indicated by '__from_config__'
+    params = {}
 
     def __init__(self, methodName='runTest', hostname=None):
         from cwtapitests import conf
@@ -49,9 +52,7 @@ class TestWPS(unittest.TestCase):
                     out = val
 
         if out is None:
-            print self.identifier, param
-            print self.conf[host].items()
-            raise ValueError("{}/{} not found in configuration file.".format(self.identifier, param))
+            raise ValueError("{}/{} not found in section `{}` of configuration file. Please fill in the missing information.".format(self.identifier, param, self.hostname))
 
         return out
 
@@ -103,7 +104,6 @@ class TestWPS(unittest.TestCase):
             else:
                 inputs.append((key, val))
 
-        print inputs
         # Here we set a dummy output to immediatly get the status file
         # and allow long process not to timeout, not sure about this...
         execution = self.wps.execute(self.identifier,

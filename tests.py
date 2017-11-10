@@ -10,7 +10,7 @@ def main(argv):
    try:
       opts, args = getopt.getopt(argv,"hi:s:",["ifile=","host="])
    except getopt.GetoptError:
-      print 'test.py -i <configfile> -s <servername>'
+      print('test.py -i <configfile> -s <servername>')
       sys.exit(2)
 
    conf = './config.cfg'
@@ -18,7 +18,9 @@ def main(argv):
 
    for opt, arg in opts:
       if opt == '-h':
-         print 'test.py -i <configfile> -o <servername>'
+         print('test.py -i <configfile> -o <servername>')
+         print("")
+         print("Run compliance tests on remote servers.")
          sys.exit()
       elif opt in ("-i", "--ifile"):
          conf = arg.strip()
@@ -31,7 +33,7 @@ def main(argv):
    unittest.TextTestRunner(verbosity=2).run(suite)
 
 if __name__ == "__main__":
-   main(sys.argv[1:])
+    main(sys.argv[1:])
 
 
 

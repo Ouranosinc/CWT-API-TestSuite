@@ -25,7 +25,7 @@ class TestMerge(TestWPS):
             with nc.Dataset(self.fstrip(res.value)) as D:
                 n += len(D.dimensions['time'])
 
-        fn = self.download(self.output.reference, path='/tmp')
+        fn = self.download(self.output, path='/tmp')
 
         with nc.Dataset(fn) as D:
             self.assertIn('tasmax', D.variables)
@@ -42,9 +42,6 @@ class TestSpatialSubset(TestWPS):
               'featureids':'region_admin_poly.16',
               'geoserver':'__from_config__'}
     output_name = 'output'
-
-    def resource(self, value):
-        return map(ComplexDataInput, value.split(','))
 
     def test(self):
         # The result is actually a json file containing a list of NetCDF links

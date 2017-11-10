@@ -14,6 +14,10 @@ def load_suite(host):
     host : str, list
       List of host where tests should be run. If `all`, run of all hosts
       listed in the configuration file.
+
+    Returns
+    suite : TestSuite
+      The list of all tests to be run.
     """
 
     klasses = all_subclasses(TestWPS)
@@ -35,10 +39,13 @@ def load_suite(host):
         includes = conf[name].get('include', '*')
         excludes = conf[name].get('exclude', '')
 
-        includes = names if includes == '*' else includes.split(',')
-        excludes = names if excludes == '*' else excludes.split(',')
+        includes = set(names if includes == '*' else includes.split(','))
+        excludes = set(names if excludes == '*' else excludes.split(','))
 
-        set(includes).discard(set(excludes))
+        print excludes
+        includes.difference_update(excludes)
+
+        print includes
 
         for k in klasses:
             kid = k.identifier
