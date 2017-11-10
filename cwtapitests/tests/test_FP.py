@@ -1,3 +1,5 @@
+import unittest
+import json
 import netCDF4 as nc
 from flyingpigeon.tests.common import TESTDATA
 from owslib.wps import ComplexDataInput
@@ -40,7 +42,11 @@ class TestSpatialSubset(TestWPS):
     output_name = 'output'
 
     def test(self):
-        fn = self.download(self.output.reference, path='/tmp')
+        # The result is actually a json file containing a list of NetCDF links
+        fn = self.download(self.output, path='/tmp')
+        # Downloading again, the actual NetCDF outputs this time
+        with open(fn, 'r') as f:
+            fn = self.download(json.loads(f.read())[0], path='/tmp')
         with nc.Dataset(fn) as D:
             self.assertEqual(len(D.dimensions['lon']), 4)
             self.assertEqual(len(D.dimensions['lat']), 3)

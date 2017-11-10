@@ -2,6 +2,7 @@ import os
 import requests
 import unittest
 from owslib.wps import WebProcessingService
+import wps_tests_utils
 
 class TestWPS(unittest.TestCase):
     wps_host = 'tbd'
@@ -71,9 +72,10 @@ class TestWPS(unittest.TestCase):
         if execution.getStatus() != 'ProcessSucceeded':
             raise RuntimeError()
 
-        for out in execution.processOutputs:
-            if out.identifier == self.output_name:
-                return out
+        # execution.processOutputs[x].reference is not set in
+        # storeExecuteResponse mode, this is a workaround.
+        exec_resp = wps_tests_utils.parse_execute_response(execution.response)
+        return exec_resp['outputs'][self.output_name]
 
     def download(self, link, path='/tmp', strip=False):
         """Download the content of a link into a local file.
