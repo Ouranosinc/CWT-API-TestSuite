@@ -2,18 +2,21 @@ import netCDF4 as nc
 from flyingpigeon.tests.common import TESTDATA
 from owslib.wps import ComplexDataInput
 from cwtapitests import TestWPS
-
-host = 'http://localhost:8093/wps'
-
+import unittest
 
 class TestMerge(TestWPS):
-    wps_host = host
     identifier = 'ncmerge'
-    params = {'resource': [ComplexDataInput(TESTDATA['cmip5_tasmax_2006_nc']),
-                         ComplexDataInput(TESTDATA['cmip5_tasmax_2006_nc'])]}
+    params = {'resource': '__from_config__'}
     output_name = 'output'
 
+    def resource(self, value):
+        return map(ComplexDataInput, value.split(','))
+
     def test(self):
+        """Confirm that the length of the output file along the time
+        dimension is the sum of the length of the input files.
+        """
+
         # Count the total length of the time dimension of the input files.
         n = 0
         for res in self.params['resource']:
@@ -31,17 +34,20 @@ class TestMerge(TestWPS):
 
 
 class TestSpatialSubset(TestWPS):
-    wps_host = host
     identifier = 'subset'
-    params = {'resource':'path_to_MERRA2_100.statM_2d_slv_Nx.198001.nc',
+    params = {'resource':'__from_config__',
               'typename':'region_admin_poly',
               'featureids':'region_admin_poly.16',
-              'geoserver':'http://localhost:8087/geoserver/wfs'}
+              'geoserver':'__from_config__'}
     output_name = 'output'
+
+    def resource(self, value):
+        return map(ComplexDataInput, value.split(','))
 
     def test(self):
         fn = self.download(self.output.reference, path='/tmp')
         with nc.Dataset(fn) as D:
             self.assertEqual(len(D.dimensions['lon']), 4)
             self.assertEqual(len(D.dimensions['lat']), 3)
+
 

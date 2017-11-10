@@ -1,5 +1,0 @@
-# Ignore config files
-*.cfg
-
-# Except templates
-!*template.cfg

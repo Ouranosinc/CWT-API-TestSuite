@@ -4,15 +4,61 @@ import unittest
 from owslib.wps import WebProcessingService
 
 class TestWPS(unittest.TestCase):
-    wps_host = 'tbd'
+    hostname = 'tbd'
+    wps = 'usually defined in config file'
     identifier = 'tbd'
     params = {}
     output_name = 'output'
 
+    def __init__(self, methodName='runTest', hostname=None):
+        from cwtapitests import conf
+        super(TestWPS, self).__init__(methodName)
+        self.conf = conf
+        self.hostname = hostname
+        self.wps = self.conf[hostname]['wps']
+        self.process_params()
+
+
+    def process_params(self):
+        """Read configuration file to load process parameters."""
+        for key in self.params.keys():
+            if self.params[key] == '__from_config__':
+                val = self.get_conf_params(key)
+                preprocesser = getattr(self, key, lambda x: x)
+                self.params[key] = preprocesser(val)
+
+    @staticmethod
+    def parametrize(testcase_klass, hostname=None):
+        """ Create a suite containing all tests taken from the given
+            subclass, passing them the parameter 'host'.
+        """
+        testloader = unittest.TestLoader()
+        testnames = testloader.getTestCaseNames(testcase_klass)
+        suite = unittest.TestSuite()
+        for name in testnames:
+            suite.addTest(testcase_klass(name, hostname=hostname))
+        return suite
+
+    def get_conf_params(self, param):
+        """Return input parameters from the configuration file."""
+        out = None
+        for host in ['default', self.hostname]:
+            for key, val in self.conf[host].items():
+                if key == '/'.join([self.identifier, param]):
+                    out = val
+
+        if out is None:
+            print self.identifier, param
+            print self.conf[host].items()
+            raise ValueError("{}/{} not found in configuration file.".format(self.identifier, param))
+
+        return out
+
 
     def setUp(self):
         """Run the WPS process and store the result."""
-        self.wps = WebProcessingService(self.wps_host)
+        print("Launching on {}".format(self.hostname))
+        self.wps = WebProcessingService(self.wps)
 
         # Get the description of the process
         self.p = self.wps.describeprocess(self.identifier)
@@ -56,7 +102,7 @@ class TestWPS(unittest.TestCase):
             else:
                 inputs.append((key, val))
 
-
+        print inputs
         # Here we set a dummy output to immediatly get the status file
         # and allow long process not to timeout, not sure about this...
         execution = self.wps.execute(self.identifier,

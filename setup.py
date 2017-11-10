@@ -19,12 +19,6 @@ classifiers = [
     'Programming Language :: Python',
     'Topic :: Scientific/Engineering :: Atmospheric Science']
 
-def testsuite():
-    test_loader = unittest.TestLoader()
-    test_suite = test_loader.discover('cwtapitests/tests',
-                                      pattern='test_*.py')
-    return test_suite
-
 setup(name='cwtapitests',
       version='0.1',
       description='Tests for the ESGF CWT API.',
@@ -38,7 +32,6 @@ setup(name='cwtapitests',
       packages=find_packages(),
       include_package_data=True,
       zip_safe=False,
-      test_suite='setup.testsuite',
       install_requires=reqs,
       entry_points={'console_scripts': []},
       )
