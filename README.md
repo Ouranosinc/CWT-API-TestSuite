@@ -1,23 +1,17 @@
 # CWT-API-TestSuite
 
-Design notes
+This package is meant to be an independent test suite for implementations of
+the CWT API. It's architecture allows the same test logic to be applied to 
+multiple implementations. What is being exercised are thus processes on live 
+servers, not code within this repository. 
+
+## Design notes
 
 - This is currently a draft, to be converted into a full python package.
-
 - Each test is associated with a particular file (or set of files). Ideally
-  there is a stable public server that hosts those files, but it should
-  always be possible to point to that same file on a different server through
-  configuration (i.e. they are not hard-coded in the tests).
-
-- Given that there are various WPS implementations in use
-  (ESGF API, Birdhouse), further configuration parameters are required to
-  specify the identifier of each input/output. Furthermore, some groups might
-  have options in their WPS that others do not have, this can also be
-  specified through configuration and skipped for implementations that do
-  not support those options. This lack of uniformity might be unmanagable in
-  the context of this test suite in the long run. There should really be just
-  one climate data processing WPS API.
-
+  there would be a stable public server that hosts those files. 
+- Given that there may be some variations in the the API (additional arguments),
+  parameters can be configured for each library/process. 
 - wps_tests_utils.py contains some old functions that are better handled by
   owslib, but there are still some cases where owslib does not seem to
   provide all the information required and these old functions do, need to
